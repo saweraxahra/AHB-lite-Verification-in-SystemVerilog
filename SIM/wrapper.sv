@@ -1,4 +1,7 @@
-interface wrap (input bit HCLK,HRESET);
+//----------------WRAPPER MODULE------------------
+
+interface wrap (input bit HCLK,HRESET);  // interface name "wrap" for wrapper module
+   // Declaration of ports
    logic [31:0] HADDR;
    logic [31:0] HRDATA;
    logic [31:0] HWDATA;
@@ -9,9 +12,10 @@ interface wrap (input bit HCLK,HRESET);
    logic HREADY, HREADYOUT, HRESP, HWRITE;
 endinterface : wrap
 
-module wrap_inf (port_w, port_if);
+module wrap_inf (port_w, port_if); // wrapping module
     wrap port_w;
     memory port_if;
+    // assigning ports
     assign port_w.HADDR = port_if.HADDR;
     assign port_w.HRDATA = port_if.HRDATA;
     assign port_w.HWDATA = port_if.HWDATA;

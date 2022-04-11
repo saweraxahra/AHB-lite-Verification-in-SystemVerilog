@@ -1,4 +1,5 @@
-interface memory(input bit HCLK,HRESET);
+interface memory(input bit HCLK,HRESET); // interface with name "memory"
+   // Declaration of ports
    logic [31:0] HADDR;
    logic [31:0] HRDATA;
    logic [31:0] HWDATA;

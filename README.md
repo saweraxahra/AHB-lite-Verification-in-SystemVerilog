@@ -1,5 +1,6 @@
-# AHB-lite Verification in SystemVerilog
- EE-599f SoC SystemVerilog Final Project
+## AHB-lite Verification in SystemVerilog
+#EE-599f SoC SystemVerilog Final Project
+## Introduction
 AHB is a protocol introduced by the second version of the standard and it is dedicated to high
 performance transfers, to connect internal and external memories and high performance peripherals.
 It describes bus transactions as composed of an addressing phase, followed by a data phase. Usually,
@@ -21,6 +22,7 @@ the direction, i.e. whether the operation is to write the data (from the master 
 the data (from the slave to the master), the width of the transfer and whether the transfer is single
 or burst (incremental or wrapping to a particular address).
 
+## Documentation
 This project consists of 
 - documentation file
 - RTL file

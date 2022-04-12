@@ -1,5 +1,5 @@
 # AHB-lite Verification in SystemVerilog
- EE-535f SoC SystemVerilog Final Project
+ EE-599f SoC SystemVerilog Final Project
 AHB is a protocol introduced by the second version of the standard and it is dedicated to high
 performance transfers, to connect internal and external memories and high performance peripherals.
 It describes bus transactions as composed of an addressing phase, followed by a data phase. Usually,

@@ -16,7 +16,7 @@ class generator;
   int  beat_count;            // counting number of beats
   logic beat_case;
   
-  function new(virtual memory.test port_t); // construct function to connect ports
+	function new(virtual memory.test port_t, mailbox gen2drv); // construct function to connect ports
      begin
        this.port_t = port_t;
        this.gen2drv = gen2drv;

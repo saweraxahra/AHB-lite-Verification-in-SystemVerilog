@@ -4,7 +4,7 @@ class driver;
   
   mailbox gen2drv;
 
-  function new(virtual memory inf_d);
+  function new(virtual memory inf_d,mailbox gen2drv);
      begin
        this.inf_d = inf_d;
        this.gen2drv = gen2drv;

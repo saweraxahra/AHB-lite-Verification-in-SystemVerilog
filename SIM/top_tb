@@ -1,0 +1,43 @@
+/* 
+ * Top Testbench file
+ */
+import ahb3lite_pkg::*;
+`include "interface.sv"
+`include "test_prog.sv"
+module top_tb;
+  bit clk;
+  bit reset;
+  
+  //clock generation
+  always #5 clk = ~clk;
+  
+  //reset Generation
+  initial begin
+    reset = 0;
+    #5 reset =1;
+  end
+  
+  //creatinng instance of interface, inorder to connect DUT and testcase
+  ahbif inf(clk,reset);
+  
+  //Testcase instance, interface handle is passed to test as an argument
+  test2 t2(inf);
+  
+  //DUT instance, interface signals are connected to the DUT ports
+   ahb3lite_sram1rw DUT(	
+				.HRESETn (inf.HRESET),
+				.HCLK	(inf.HCLK),
+				.HSEL	(inf.HSEL),
+				.HADDR	(inf.HADDR),
+				.HWDATA	(inf.HWDATA),
+				.HRDATA	(inf.HRDATA),
+				.HWRITE	(inf.HWRITE),
+				.HSIZE	(inf.HSIZE),
+				.HBURST	(inf.HBURST),
+				.HPROT	(inf.HPROT),
+				.HTRANS	(inf.HTRANS),
+				.HREADYOUT(inf.HREADYOUT),
+				.HREADY	(inf.HREADY),
+				.HRESP	(inf.HRESP)	
+ );
+endmodule 

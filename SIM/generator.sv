@@ -1,115 +1,708 @@
-//------------------- GENERATOR -------------------------
+/* 
+ * Generator class
+ */
+
+import ahb3lite_pkg::*;
 `include "transaction.sv"
-//A new type for bursts
-typedef enum bit [2:0] {SINGLE, INCR, WRAP4, INCR4, WRAP8, INCR8, WRAP16, INCR16} e_burst;
-e_burst burst;
-
-//A new type for transfers
-typedef enum bit [1:0] {IDLE, BUSY, NONSEQ, SEQ} e_trans;
-e_trans trans;
-
 class generator;
-  virtual memory.test port_t; // connect virtual interface
-  mailbox gen2drv;            // mailbox from generator to driver
-  transaction tr;             // define transaction
-  int  tr_count;              // counting number of transactions
-  int  beat_count;            // counting number of beats
-  logic beat_case;
+  rand transaction tr;
+  mailbox #(transaction) gen2drv;
+  int no_trans; // number of transactions
+  bit [31:0] addr,data,addr_e;
+  bit rnd;
+
+  function new (mailbox #(transaction) gen2drv);
+    this.gen2drv = gen2drv;
+    // trans = new();
+  endfunction : new
   
-	function new(virtual memory.test port_t, mailbox gen2drv); // construct function to connect ports
-     begin
-       this.port_t = port_t;
-       this.gen2drv = gen2drv;
-     end
-  endfunction 
-  
-  task burst; // bursts cases
-  forever begin
-    tr = new;
-    port_t.HTRANS = NONSEQ; // Non-Sequential 
-    gen2drv.put(tr);
-    $display("Address:0x%0h sent to driver\n",tr.HADDR);
-    beat_count = beat_count - 1;
-    case (beat_case)
-	SINGLE : begin 
-		 repeat(beat_count)	
-      		 begin
-      		   port_t.HTRANS = SEQ; // SEQ for the remaining beats
-        	   port_t.HSIZE = 3'b010; // HSIZE=word (32-bits)
-      			case(tr.HSIZE)
-				3'b000 : port_t.HSIZE = 1;
-				3'b001 : port_t.HSIZE = 2;
-				3'b010 : port_t.HSIZE = 4;
-        		endcase 
-       	gen2drv.put(tr);	
-	port_t.HADDR = tr.HADDR + port_t.HSIZE;
-	$display("Address:0x%0h sent to mailbox",tr.HADDR);
-	end
-	$display("Single Burst sent to driver\n");
-	end
-    	INCR4 : begin 
-		repeat(3)	
-      		begin
-      		  port_t.HTRANS = SEQ; // SEQ for the remaining beats
-        	  port_t.HSIZE = 3'b010; // HSIZE=word (32-bits)
-      	          case(tr.HSIZE)
-		        3'b000 : port_t.HSIZE = 1;
-			3'b001 : port_t.HSIZE = 2;
-			3'b010 : port_t.HSIZE = 4;
-        	  endcase 
-       		gen2drv.put(tr);	
-		port_t.HADDR = tr.HADDR + port_t.HSIZE;
-		$display("Address 0x%0h has been sent to mailbox",tr.HADDR);
-		end
-		$display("INCR4 burst sent to driver\n");
-                end
-        INCR8 : begin
-		repeat(7)	
-      		begin
-      		  port_t.HTRANS = SEQ; // SEQ for the remaining beats
-        	  port_t.HSIZE = 3'b010; // HSIZE=word (32-bits)
-      	              case(tr.HSIZE)
-		        3'b000 : port_t.HSIZE = 1;
-			3'b001 : port_t.HSIZE = 2;
-			3'b010 : port_t.HSIZE = 4;
-        	      endcase 
-       		gen2drv.put(tr);	
-		port_t.HADDR = tr.HADDR + port_t.HSIZE;
-		$display("Address:0x%0h sent to mailbox",tr.HADDR);
-		end
-		$display("INCR8 burst sent to driver\n");
-		end
-	INCR16 :begin
-		repeat(15)	
-      		begin
-      		  port_t.HTRANS = SEQ; // SEQ for the remaining beats
-        	  port_t.HSIZE = 3'b010; // HSIZE=word (32-bits)
-      	              case(tr.HSIZE)
-		        3'b000 : port_t.HSIZE = 1;
-			3'b001 : port_t.HSIZE = 2;
-			3'b010 : port_t.HSIZE = 4;
-        	      endcase 
-       		gen2drv.put(tr);	
-		port_t.HADDR = tr.HADDR + port_t.HSIZE;
-		$display("Address:0x%0h sent to mailbox",tr.HADDR);
-		end
-		$display("INCR16 burst sent to driver\n");
-		end
-	endcase
-  end 
-  endtask : burst
-  
-  
-  //run task, generates(create and randomizes) 
-  //The tr_count number of transaction packets and puts into mailbox
-  task run;
-   forever begin
-    repeat(tr_count) 
-    tr = new; 
-    if( !tr.randomize() ) 
-      $fatal("Randomization of generator failed");
-    tr.display;
-    gen2drv.put(tr);
+  task single_rd(input addr, rnd);
+  // bit [2:0] trans_size;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
     end
-  endtask : run
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '0; 
+    this.tr.HBURST = HBURST_SINGLE;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();	
+    gen2drv.put(tr);
+    $display("-------SINGLE BURST read-----------\n");
+  endtask : single_rd
+  
+  task single_wt(input addr, data, rnd);
+  // bit [2:0] trans_size;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+      this.tr.HWDATA.rand_mode(0);
+      this.tr.HWDATA = data;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '1; 
+    this.tr.HBURST = HBURST_SINGLE;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    char = tr.randomize();	
+    gen2drv.put(tr);
+    $display("-------SINGLE BURST Write -----------\n");
+  endtask : single_wt
+  
+  task incr4_rd(input addr, rnd);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '0; 
+    this.tr.HBURST = HBURST_INCR4;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(3)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);
+       	this.tr.HADDR = addr;	
+       	this.tr.HWRITE = '0; 			
+       	this.tr.HBURST = HBURST_INCR4;
+	this.tr.HTRANS = HTRANS_SEQ;
+       	this.tr.HSIZE = addr_sz; 
+       	char = tr.randomize();
+	addr = addr+tr_size;
+	this.tr.HADDR = addr;
+	gen2drv.put(tr);
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------INCR4 BURST read-----------\n");
+  endtask : incr4_rd
+  
+  task incr4_wt(input addr, data, rnd);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+      this.tr.HWDATA.rand_mode(0);
+      this.tr.HWDATA = data;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '1; 
+    this.tr.HBURST = HBURST_INCR4;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(3)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);
+       	this.tr.HADDR = addr;	
+       	this.tr.HWRITE = '1; 			
+       	this.tr.HBURST = HBURST_INCR4;
+	this.tr.HTRANS = HTRANS_SEQ;
+       	this.tr.HSIZE = addr_sz; 
+       	char = tr.randomize();
+	addr = addr+tr_size;
+	this.tr.HADDR = addr;
+	gen2drv.put(tr);
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------INCR4 BURST write-----------\n");
+  endtask : incr4_wt
+  
+  task incr8_rd(input addr,rnd);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '0; 
+    this.tr.HBURST = HBURST_INCR8;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(7)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);
+       	this.tr.HADDR = addr;	
+       	this.tr.HWRITE = '0; 			
+       	this.tr.HBURST = HBURST_INCR8;
+	this.tr.HTRANS = HTRANS_SEQ;
+       	this.tr.HSIZE = addr; 
+       	char = tr.randomize();
+	addr = addr+tr_size;
+	this.tr.HADDR = addr;
+	gen2drv.put(tr);
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------INCR8 BURST read-----------\n");
+  endtask : incr8_rd
+  
+  task incr8_wt(input addr, data, rnd);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+      this.tr.HWDATA.rand_mode(0);
+      this.tr.HWDATA = data;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '1; 
+    this.tr.HBURST = HBURST_INCR8;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(7)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);
+       	this.tr.HADDR = addr;	
+       	this.tr.HWRITE = '1; 			
+       	this.tr.HBURST = HBURST_INCR8;
+	this.tr.HTRANS = HTRANS_SEQ;
+       	this.tr.HSIZE = addr_sz; 
+       	char = tr.randomize();
+	addr = addr+tr_size;
+	this.tr.HADDR = addr;
+	gen2drv.put(tr);
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------INCR8 BURST write-----------\n");
+  endtask : incr8_wt
+  
+  task incr16_rd(input addr, rnd);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '0; 
+    this.tr.HBURST = HBURST_INCR16;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(15)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);
+       	this.tr.HADDR = addr;	
+       	this.tr.HWRITE = '0; 			
+       	this.tr.HBURST = HBURST_INCR16;
+	this.tr.HTRANS = HTRANS_SEQ;
+       	this.tr.HSIZE = addr; 
+       	char = tr.randomize();
+	addr = addr+tr_size;
+	this.tr.HADDR = addr;
+	gen2drv.put(tr);
+	
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------INCR16 BURST read-----------\n");
+  endtask : incr16_rd
+  
+  task incr16_wt(input addr, data, rnd);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+      this.tr.HWDATA.rand_mode(0);
+      this.tr.HWDATA = data;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '1; 
+    this.tr.HBURST = HBURST_INCR16;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(15)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);
+       	this.tr.HADDR = addr;	
+       	this.tr.HWRITE = '1; 			
+       	this.tr.HBURST = HBURST_INCR16;
+	this.tr.HTRANS = HTRANS_SEQ;
+       	this.tr.HSIZE = addr_sz; 
+       	char = tr.randomize();
+	addr = addr+tr_size;
+	this.tr.HADDR = addr;
+	gen2drv.put(tr);
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------INCR16 BURST write-----------\n");
+  endtask : incr16_wt
+  
+  task wrap4_rd(input addr, addr_e);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '0; 
+    this.tr.HBURST = HBURST_WRAP4;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(3)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);
+       	this.tr.HWRITE = '0; 			
+       	this.tr.HBURST = HBURST_WRAP4;
+       	this.tr.HSIZE = HSIZE_WORD; 
+       	this.tr.HTRANS = HTRANS_SEQ;
+	gen2drv.put(tr);
+	case(tr.HSIZE)
+           0 : tr_size = 1;
+           1 : tr_size = 2;
+	   2 : tr_size = 4;
+        endcase 
+        gen2drv.put(tr);
+        addr = addr+tr_size ;
+	if(addr >= addr_e)
+	begin
+	addr = addr_e - (tr_size*3);
+	end
+        this.tr.HADDR = addr;
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------WRAP4 BURST read-----------\n");
+  endtask : wrap4_rd
+  
+  task wrap4_wt(input addr, data, addr_e);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+      this.tr.HWDATA.rand_mode(0);
+      this.tr.HWDATA = data;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '1; 
+    this.tr.HBURST = HBURST_WRAP4;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(3)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);	
+       	this.tr.HWRITE = '1; 			
+       	this.tr.HBURST = HBURST_WRAP4;
+       	this.tr.HTRANS = HTRANS_SEQ; 
+         case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+         endcase 
+        gen2drv.put(tr);
+       	addr = addr+tr_size ;
+	if(addr >= addr_e)
+	begin
+	addr = addr_e - (tr_size*3);
+	end
+        this.tr.HADDR = addr;
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------WRAP4 BURST write-----------\n");
+  endtask : wrap4_wt
+  
+  task wrap8_rd(input addr, addr_e);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '0; 
+    this.tr.HBURST = HBURST_WRAP8;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(7)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);
+       	this.tr.HWRITE = '0; 			
+       	this.tr.HBURST = HBURST_WRAP8;
+       	this.tr.HSIZE = HSIZE_WORD; 
+       	this.tr.HTRANS = HTRANS_SEQ;
+	gen2drv.put(tr);
+	case(tr.HSIZE)
+           0 : tr_size = 1;
+           1 : tr_size = 2;
+	   2 : tr_size = 4;
+        endcase 
+        gen2drv.put(tr);
+        addr = addr+tr_size ;
+	if(addr >= addr_e)
+	begin
+	addr = addr_e - (tr_size*3);
+	end
+        this.tr.HADDR = addr;
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------WRAP8 BURST read-----------\n");
+  endtask : wrap8_rd
+  
+  task wrap8_wt(input addr, data, addr_e);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+      this.tr.HWDATA.rand_mode(0);
+      this.tr.HWDATA = data;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '1; 
+    this.tr.HBURST = HBURST_WRAP8;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(7)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);	
+       	this.tr.HWRITE = '1; 			
+       	this.tr.HBURST = HBURST_WRAP8;
+       	this.tr.HTRANS = HTRANS_SEQ; 
+         case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+         endcase 
+        gen2drv.put(tr);
+       	addr = addr+tr_size ;
+	if(addr >= addr_e)
+	begin
+	addr = addr_e - (tr_size*3);
+	end
+        this.tr.HADDR = addr;
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------WRAP8 BURST write-----------\n");
+  endtask : wrap8_wt
+
+  task wrap16_rd(input addr, addr_e);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '0; 
+    this.tr.HBURST = HBURST_WRAP16;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(15)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);
+       	this.tr.HWRITE = '0; 			
+       	this.tr.HBURST = HBURST_WRAP16;
+       	this.tr.HSIZE = HSIZE_WORD; 
+       	this.tr.HTRANS = HTRANS_SEQ;
+	gen2drv.put(tr);
+	case(tr.HSIZE)
+           0 : tr_size = 1;
+           1 : tr_size = 2;
+	   2 : tr_size = 4;
+        endcase 
+        gen2drv.put(tr);
+        addr = addr+tr_size ;
+	if(addr >= addr_e)
+	begin
+	addr = addr_e - (tr_size*3);
+	end
+        this.tr.HADDR = addr;
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------WRAP16 BURST read-----------\n");
+  endtask : wrap16_rd
+  
+  task wrap16_wt(input addr, data, addr_e);
+  bit [2:0] tr_size;
+  bit [2:0] addr_sz;
+  bit char;
+  tr = new;
+  if (!rnd)
+    begin
+      this.tr.HADDR.rand_mode(0);
+      this.tr.HADDR = addr;
+      this.tr.HWDATA.rand_mode(0);
+      this.tr.HWDATA = data;
+    end
+    this.tr.HWRITE.rand_mode(0);
+    this.tr.HBURST.rand_mode(0);
+    this.tr.HWRITE = '1; 
+    this.tr.HBURST = HBURST_WRAP16;
+    this.tr.HTRANS = HTRANS_NONSEQ;
+    rnd = tr.randomize();
+    case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+    endcase 	
+    gen2drv.put(tr);
+    $display("SEQ address %0h",tr.HADDR);
+    addr_sz = this.tr.HSIZE;
+    addr    = this.tr.HADDR;
+    addr    =  addr+ tr_size;
+    repeat(15)	
+       begin
+         tr = new;
+       	this.tr.HADDR.rand_mode(0);
+	this.tr.HWRITE.rand_mode(0);
+	this.tr.HBURST.rand_mode(0);	
+       	this.tr.HWRITE = '1; 			
+       	this.tr.HBURST = HBURST_WRAP16;
+       	this.tr.HTRANS = HTRANS_SEQ; 
+         case(tr.HSIZE)
+	3'b000 : tr_size = 1;
+	3'b001 : tr_size = 2;
+	3'b010 : tr_size = 4;
+         endcase 
+        gen2drv.put(tr);
+       	addr = addr+tr_size ;
+	if(addr >= addr_e)
+	begin
+	addr = addr_e - (tr_size*3);
+	end
+        this.tr.HADDR = addr;
+	$display("SEQ address %0h",tr.HADDR);
+      end
+    $display("-------WRAP16 BURST write-----------\n");
+  endtask : wrap16_wt
+ 
+  task genr(input addr,data,addr_e,rnd);
+  repeat (no_trans)
+    begin
+        tr = new();
+	if( !tr.randomize() ) 
+        $fatal("Generator randomization failed"); 
+        gen2drv.put(tr);
+        if(tr.HWRITE) // burst for write
+           begin
+             case(tr.HTRANS)
+    		0 : single_wt(addr,data,rnd);
+    		1 : incr_wt  (addr,data,rnd);
+    		2 : wrap_wt  (addr,addr_e,rnd);
+    		3 : incr4_wt (addr,data,rnd);
+    		4 : wrap8_wt (addr,addr_e,rnd);
+    		5 : incr8_wt (addr,data,rnd);
+    		6 : wrap16_wt(addr,addr_e,rnd);
+    		7 : incr18_wt(addr,data,rnd);
+	     endcase
+           end
+        if(!tr.HWRITE) 
+           begin
+             case(tr.HTRANS)
+                0 : single_rd(addr, rnd);
+    		1 : incr_rd  (addr, rnd);
+    		2 : wrap_rd  (addr,addr_e);
+    		3 : incr4_rd (addr,rnd);
+    		4 : wrap8_rd (addr,addr_e);
+    		5 : incr8_rd (addr,rnd);
+    		6 : wrap16_rd(addr,addr_e);
+    		7 : incr18_rd(addr,rnd);
+	    endcase
+           end
+         no_trans++;
+         $display(" Generating %0d transactions",no_trans);
+    end
+  endtask : genr
+
+`ifdef DEBUG
+`undef DEBUG
+`endif
+
 endclass : generator

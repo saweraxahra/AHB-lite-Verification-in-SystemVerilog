@@ -1,3 +1,6 @@
+/*
+ * Driver
+ */
 import ahb3lite_pkg::*;
 `include "generator.sv"
 class driver;

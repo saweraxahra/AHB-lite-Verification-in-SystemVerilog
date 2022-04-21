@@ -1,0 +1,13 @@
+`include "environment.sv"
+program test1(ahbif vif);
+
+ environment env;
+
+initial begin
+
+  env = new(vif);
+  env.gen.n_trans = 4;
+  env.envr(addr,data,addr_e,rnd);
+end
+
+endprogram : test1
